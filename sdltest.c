@@ -8,17 +8,17 @@
   #define M_PI 3.1415926535897932384
 #endif
 
-int offset = 0;
+double offset = 0;
 
 void generateWaveform(void *userdata, Uint8 *stream, int len) {
   float *dest = (float*)stream;
   int size = len/sizeof(float);
   int freq = *(int*)userdata;
-
   for (int i=0; i<size; i++) {
     dest[i] = sin(freq*(2*M_PI)*i/48000.0 + offset);
   }
-  offset = freq*(2*M_PI)*size/48000.0 + offset;
+  offset = fmod(freq*(2*M_PI)*size/48000.0 + offset, 2*M_PI);
+  (*(int *)userdata)++;
 }
 
 int main(int argc, char* argv[]) {
@@ -41,7 +41,7 @@ int main(int argc, char* argv[]) {
   want.freq = 48000;
   want.format = AUDIO_F32;
   want.channels = 1;
-  want.samples = 4096;
+  want.samples = 800;
   want.callback = generateWaveform;
   want.userdata = &frequency;
 
