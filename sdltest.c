@@ -8,19 +8,28 @@
   #define M_PI 3.1415926535897932384
 #endif
 
-double offset = 0;
+double offset = 0;  /* Offset for callback function to continue where it left
+                       off and prevent clicking */
 
+/***<< Sine wave generator -- Callback function >>***/
 void generateWaveform(void *userdata, Uint8 *stream, int len) {
-  float *dest = (float*)stream;
-  int size = len/sizeof(float);
-  int freq = *(int*)userdata;
+  float *dest = (float*)stream;       // Destination of values generated
+  int size = len/sizeof(float);       // Buffer size
+  int *freq_pitch = (int*)userdata;   // The pitch given
+
+  // Fill buffer
   for (int i=0; i<size; i++) {
-    dest[i] = sin(freq*(2*M_PI)*i/48000.0 + offset);
+    // Stick sine value in buffer
+    dest[i] = sin(*freq_pitch*(2*M_PI)*i/48000 + offset);
   }
-  offset = fmod(freq*(2*M_PI)*size/48000.0 + offset, 2*M_PI);
-  (*(int *)userdata)++;
+  // Update offset
+  offset = fmod(*freq_pitch*(2*M_PI)*size/48000 + offset, 2*M_PI);
+
+  // Swept sine wave; increment freq. by 1 each frame
+  *freq_pitch += 1;
 }
 
+/********<< Main >>********/
 int main(int argc, char* argv[]) {
   // Rendering vars
   SDL_Window *window;
@@ -30,25 +39,31 @@ int main(int argc, char* argv[]) {
   // Audio vars
   SDL_AudioSpec want, have;
   SDL_AudioDeviceID dev;
-  int frequency = 1000;
+  int freq_pitch = 1000;     // Arbitrary -- pitch
+
+  /***************/
 
   // Initialize with appropriate flags
   if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER) < 0)
     return 1;
 
-  // Audio settings
+  // Set audio settings
   SDL_memset(&want, 0, sizeof(want));
-  want.freq = 48000;
-  want.format = AUDIO_F32;
-  want.channels = 1;
-  want.samples = 800;
-  want.callback = generateWaveform;
-  want.userdata = &frequency;
 
+  want.freq = 48000;        // Sample rate of RasPi's sound system
+  want.format = AUDIO_F32;  // 32-bit floating point samples, little-endian
+  want.channels = 1;
+  want.samples = 800;   // (48000 samples/sec)/(60 frames/sec) = 800 samp/frame
+  want.callback = generateWaveform;
+  want.userdata = &freq_pitch;
+
+  // Alright audio is a go
   dev = SDL_OpenAudioDevice(NULL, 0, &want, &have, SDL_AUDIO_ALLOW_FORMAT_CHANGE);
   if (dev == 0) 
     printf("HELP ME IT'S %s\n", SDL_GetError());
   SDL_PauseAudioDevice(dev, 0);
+
+  /***************/
 
   // Create window in which we will draw
   window = SDL_CreateWindow("SDL_RenderClear",
