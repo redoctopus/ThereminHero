@@ -1,5 +1,12 @@
-// Compile with:
-//   gcc -I/usr/local/include -L/usr/local/lib -lSDL2 sdltest.c
+/*=====================*
+ |    Theremin Hero    |
+ |  fseidel, jocelynh  |
+ |     03/14/2016      |
+ *=====================*/
+
+/* Have you ever wanted to be a theremin-playing superhero? Well, you still
+ * can't, but at least you can pretend to play a theremin.
+ */
 
 #include <SDL2/SDL.h>
 #include <math.h>
@@ -7,7 +14,11 @@
   #define M_PI 3.1415926535897932384
 #endif
 
-/* Wavedata/userdata struct containing:
+/*==========<< GLOBALS >>===========*/
+
+int quit = 0;  /* Did the user hit quit? */
+
+/* AUDIO wavedata/userdata struct containing:
  *  phase:      Sine phase for callback function to continue where it left off
  *              such that there isn't any clicking
  *  freq_pitch: Frequency of the pitch given (arbitrary)
@@ -16,6 +27,11 @@ typedef struct {
   double phase;
   int freq_pitch;
 } wavedata;
+
+/* Functions */
+void createWant(SDL_AudioSpec *wantpoint, wavedata *userdata);
+
+/*=========<< END GLOBALS >>=========*/
 
 /*==<< Sine wave generator -- Callback function >>==*/
 void generateWaveform(void *userdata, Uint8 *stream, int len) {
@@ -37,7 +53,10 @@ void generateWaveform(void *userdata, Uint8 *stream, int len) {
   wave_data->freq_pitch += 1;
 }
 
-/*=======<< Main >>=======*/
+/*=============<< Main >>==============*
+ * Get that party started!             *
+ * Initialize for rendering and audio. *
+ *=====================================*/
 int main(int argc, char* argv[]) {
   // Rendering vars
   SDL_Window *window;
@@ -54,33 +73,18 @@ int main(int argc, char* argv[]) {
   // Initialize with appropriate flags
   if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER) < 0)
     return 1;
+  atexit(SDL_Quit); // Set exit function s.t. SDL resources deallocated on quit
 
-  // Set exit function so that all SDL resources are deallocated on quit
-  atexit(SDL_Quit);
-
-  // Set audio settings
+  // AUDIO SETTINGS
   SDL_memset(&want, 0, sizeof(want));
-
-  /*******<Set Audio Settings>*******/
-  want.freq = 48000;        // Sample rate of RasPi's sound system
-  want.format = AUDIO_F32;  // 32-bit floating point samples, little-endian
-  want.channels = 1;
-  want.samples = 800;   // (48000 samples/sec)/(60 frames/sec) = 800 samp/frame
-  want.callback = generateWaveform;
-
-  wavedata *userdata = &my_wavedata;  // Set info in wavedata struct
-  userdata->freq_pitch = 1000;
-  userdata->phase = 0.0;
-  want.userdata = userdata;
-
-  // Alright audio is a go
+  createWant(&want, &my_wavedata);    // Call function to initialize vals
   dev = SDL_OpenAudioDevice(NULL, 0, &want, &have,
                             SDL_AUDIO_ALLOW_FORMAT_CHANGE);
   if (dev == 0) 
     printf("Error opening audio device: %s\n", SDL_GetError());
   SDL_PauseAudioDevice(dev, 0);
 
-  /*******<Rendering/Drawing>*******/
+  /*******<Rendering/Drawing Setup>*******/
 
   // Create window in which we will draw
   window = SDL_CreateWindow("SDL_RenderClear",
@@ -89,27 +93,53 @@ int main(int argc, char* argv[]) {
   // Create renderer
   renderer = SDL_CreateRenderer(window, -1, 0);
 
-  SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255); // Red
+  SDL_SetRenderDrawColor(renderer, 170, 200, 215, 255);
 
-  // Set screen to red
+  // Set background color
   SDL_RenderClear(renderer);
 
-  SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255); // Green
+  SDL_SetRenderDrawColor(renderer, 200, 255, 0, 255); // Green
   SDL_RenderDrawLine(renderer, 5, 5, 300, 300);
 
   // Move to foreground
   SDL_RenderPresent(renderer);
 
-  while(1) {
-    if(SDL_PollEvent(&event)) {
-      if(event.type == SDL_KEYDOWN)
-        break;
+  while (!quit) {
+    while (SDL_PollEvent(&event)) {
+      switch (event.type) {
+        case SDL_KEYDOWN:
+          quit = 1;
+          break;
+        default:
+          break;
+      }
     }
   }
 
-  // CLEAN YO' ROOM
+  // CLEAN YO' ROOM (Cleanup)
   SDL_CloseAudioDevice(dev);
   SDL_Quit();
 
   return 0;
 }
+
+
+/********<< Setup Functions >>*********/
+
+/*==========< createWant >===========*
+ * Initialize the "want" Audiospec,  *
+ * and set its values appropriately  *
+ *===================================*/
+void createWant(SDL_AudioSpec *wantpoint, wavedata *userdata) {
+  wantpoint->freq = 48000;        // Sample rate of RasPi's sound system
+  wantpoint->format = AUDIO_F32;  // 32-bit floating point samples, little-endian
+  wantpoint->channels = 1;
+  wantpoint->samples = 800;   // (48000 samples/sec)/(60 frames/sec) = 800 samp/frame
+  wantpoint->callback = generateWaveform;
+
+  // Set info in wavedata struct
+  userdata->freq_pitch = 1000;
+  userdata->phase = 0.0;
+  wantpoint->userdata = userdata;
+}
+
