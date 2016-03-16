@@ -12,9 +12,13 @@
  *              such that there isn't any clicking
  *  freq_pitch: Frequency of the pitch given (arbitrary)
  */
+
 typedef struct {
-  double phase;
-  int freq_pitch;
+  double carrier_phase;
+  double modulator_phase;
+  double modulator_amplitude;
+  int carrier_pitch;
+  int modulator_pitch;
 } wavedata;
 
 /*==<< Sine wave generator -- Callback function >>==*/
@@ -23,18 +27,46 @@ void generateWaveform(void *userdata, Uint8 *stream, int len) {
   int size = len/sizeof(float);       // Buffer size
 
   wavedata *wave_data = (wavedata*)userdata;  // Get info from wavedata
-  int freq_pitch = wave_data->freq_pitch;
-  double phase = wave_data->phase;
+  int carrier_pitch = wave_data->carrier_pitch; // the wave that actually plays
+  double carrier_phase = wave_data->carrier_phase;
+  int modulator_pitch = wave_data->modulator_pitch; //the wave that modulates the carrier
+  double modulator_phase = wave_data->modulator_phase;
+  double modulator_amplitude = wave_data->modulator_amplitude;
 
-  // Fill audio buffer w/sine value
+  /* Fill audio buffer w/ glorious FM synth!
+   * We take a sine wave and modulate it with another sine wave (the modulator)
+   * This can be seen as the two nested sine functions
+   * e.g. sin(sin(t+p1) + t + p2) where p1 and p2 are phases
+   * This can create complex sounds with simple waveforms!
+   * You hear the "outer" (carrier) sine wave, as expected, but you also hear the wave produced
+   * by the modulation of the carrier. Think of a big sine wave, but when you zoom in, you
+   * find that the line forming the sine is itself sinusoidal.
+   */
   for (int i=0; i<size; i++) {
-    dest[i] = sin(freq_pitch*(2*M_PI)*i/48000 + phase);
+    dest[i] = sin(modulator_amplitude*sin(modulator_pitch*(2*M_PI)*i/48000
+                                          + modulator_phase)
+                  + carrier_pitch*(2*M_PI)*i/48000 + carrier_phase);
   }
 
   // Update phase s.t. next frame of audio starts at same point in wave
-  wave_data->phase = fmod(freq_pitch*(2*M_PI)*size/48000 + phase, 2*M_PI);
+  wave_data->carrier_phase = fmod(carrier_pitch*(2*M_PI)*size/48000 +
+                                  carrier_phase, 2*M_PI);
+  wave_data->modulator_phase = fmod(modulator_pitch*(2*M_PI)*size/48000 +
+                                    modulator_phase, 2*M_PI);
+  
   // Swept sine wave; increment freq. by 1 each frame
-  wave_data->freq_pitch += 1;
+  //wave_data->carrier_pitch += 1;
+
+  // Change modulator frequency to show difference in sound
+  //wave_data->modulator_pitch += 1;
+
+  /* Change modulator amplitude to vary the amount of modulation
+   * A decay of 1 second means 0.4/60 = 0.066 repeating
+   * 0.4 is the max amplitude (completely arbitrary, it just sounds good)
+   * 60 is frames per second
+   */
+  if(modulator_amplitude > 0) wave_data->modulator_amplitude -= 0.0066666666;
+  else wave_data->modulator_amplitude = 0.4; //reset if we hit 0
 }
 
 /*=======<< Main >>=======*/
@@ -69,8 +101,11 @@ int main(int argc, char* argv[]) {
   want.callback = generateWaveform;
 
   wavedata *userdata = &my_wavedata;  // Set info in wavedata struct
-  userdata->freq_pitch = 1000;
-  userdata->phase = 0.0;
+  userdata->carrier_pitch = 1000;
+  userdata->modulator_pitch = 500;
+  userdata->modulator_phase = 0.0;
+  userdata->carrier_phase = 0.0;
+  userdata->modulator_amplitude = 0.4;
   want.userdata = userdata;
 
   // Alright audio is a go
