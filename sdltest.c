@@ -8,7 +8,7 @@
   #define M_PI 3.1415926535897932384
 #endif
 
-double offset = 0;  /* Offset for callback function to continue where it left
+double phase = 0;  /* sine phase for callback function to continue where it left
                        off and prevent clicking */
 
 /***<< Sine wave generator -- Callback function >>***/
@@ -20,10 +20,10 @@ void generateWaveform(void *userdata, Uint8 *stream, int len) {
   // Fill buffer
   for (int i=0; i<size; i++) {
     // Stick sine value in buffer
-    dest[i] = sin(*freq_pitch*(2*M_PI)*i/48000 + offset);
+    dest[i] = sin((*freq_pitch)*(2*M_PI)*i/48000 + phase);
   }
-  // Update offset
-  offset = fmod(*freq_pitch*(2*M_PI)*size/48000 + offset, 2*M_PI);
+  // Update phase s.t. next frame of audio starts at same point in wave
+  phase = fmod((*freq_pitch)*(2*M_PI)*size/48000 + phase, 2*M_PI);
 
   // Swept sine wave; increment freq. by 1 each frame
   *freq_pitch += 1;
@@ -47,6 +47,9 @@ int main(int argc, char* argv[]) {
   if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER) < 0)
     return 1;
 
+  // Set exit function so that all SDL resources are deallocated on quit
+  atexit(SDL_Quit);
+
   // Set audio settings
   SDL_memset(&want, 0, sizeof(want));
 
@@ -58,7 +61,8 @@ int main(int argc, char* argv[]) {
   want.userdata = &freq_pitch;
 
   // Alright audio is a go
-  dev = SDL_OpenAudioDevice(NULL, 0, &want, &have, SDL_AUDIO_ALLOW_FORMAT_CHANGE);
+  dev = SDL_OpenAudioDevice(NULL, 0, &want, &have,
+                            SDL_AUDIO_ALLOW_FORMAT_CHANGE);
   if (dev == 0) 
     printf("HELP ME IT'S %s\n", SDL_GetError());
   SDL_PauseAudioDevice(dev, 0);
