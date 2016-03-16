@@ -11,25 +11,37 @@
 double phase = 0;  /* sine phase for callback function to continue where it left
                        off and prevent clicking */
 
-/***<< Sine wave generator -- Callback function >>***/
+/* Wavedata/userdata struct containing:
+ *  phase:      Sine phase for callback function to continue where it left off
+ *              such that there isn't any clicking
+ *  freq_pitch: Frequency of the pitch given (arbitrary)
+ */
+typedef struct {
+  double phase;
+  int freq_pitch;
+} wavedata;
+
+/*==<< Sine wave generator -- Callback function >>==*/
 void generateWaveform(void *userdata, Uint8 *stream, int len) {
   float *dest = (float*)stream;       // Destination of values generated
   int size = len/sizeof(float);       // Buffer size
-  int *freq_pitch = (int*)userdata;   // The pitch given
 
-  // Fill buffer
+  wavedata *wave_data = (wavedata*)userdata;  // Get info from wavedata
+  int freq_pitch = wave_data->freq_pitch;
+  double phase = wave_data->phase;
+
+  // Fill audio buffer w/sine value
   for (int i=0; i<size; i++) {
-    // Stick sine value in buffer
-    dest[i] = sin((*freq_pitch)*(2*M_PI)*i/48000 + phase);
+    dest[i] = sin(freq_pitch*(2*M_PI)*i/48000 + phase);
   }
-  // Update phase s.t. next frame of audio starts at same point in wave
-  phase = fmod((*freq_pitch)*(2*M_PI)*size/48000 + phase, 2*M_PI);
 
+  // Update phase s.t. next frame of audio starts at same point in wave
+  wave_data->phase = fmod(freq_pitch*(2*M_PI)*size/48000 + phase, 2*M_PI);
   // Swept sine wave; increment freq. by 1 each frame
-  *freq_pitch += 1;
+  wave_data->freq_pitch += 1;
 }
 
-/********<< Main >>********/
+/*=======<< Main >>=======*/
 int main(int argc, char* argv[]) {
   // Rendering vars
   SDL_Window *window;
@@ -39,9 +51,9 @@ int main(int argc, char* argv[]) {
   // Audio vars
   SDL_AudioSpec want, have;
   SDL_AudioDeviceID dev;
-  int freq_pitch = 1000;     // Arbitrary -- pitch
+  wavedata my_wavedata;
 
-  /***************/
+  /*******<Initial Settings>*******/
 
   // Initialize with appropriate flags
   if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER) < 0)
@@ -53,21 +65,26 @@ int main(int argc, char* argv[]) {
   // Set audio settings
   SDL_memset(&want, 0, sizeof(want));
 
+  /*******<Set Audio Settings>*******/
   want.freq = 48000;        // Sample rate of RasPi's sound system
   want.format = AUDIO_F32;  // 32-bit floating point samples, little-endian
   want.channels = 1;
   want.samples = 800;   // (48000 samples/sec)/(60 frames/sec) = 800 samp/frame
   want.callback = generateWaveform;
-  want.userdata = &freq_pitch;
+
+  wavedata *userdata = &my_wavedata;  // Set info in wavedata struct
+  userdata->freq_pitch = 1000;
+  userdata->phase = 0.0;
+  want.userdata = userdata;
 
   // Alright audio is a go
   dev = SDL_OpenAudioDevice(NULL, 0, &want, &have,
                             SDL_AUDIO_ALLOW_FORMAT_CHANGE);
   if (dev == 0) 
-    printf("HELP ME IT'S %s\n", SDL_GetError());
+    printf("Error opening audio device: %s\n", SDL_GetError());
   SDL_PauseAudioDevice(dev, 0);
 
-  /***************/
+  /*******<Rendering/Drawing>*******/
 
   // Create window in which we will draw
   window = SDL_CreateWindow("SDL_RenderClear",
@@ -81,7 +98,7 @@ int main(int argc, char* argv[]) {
   // Set screen to red
   SDL_RenderClear(renderer);
 
-  SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
+  SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255); // Green
   SDL_RenderDrawLine(renderer, 5, 5, 300, 300);
 
   // Move to foreground
@@ -93,9 +110,6 @@ int main(int argc, char* argv[]) {
         break;
     }
   }
-
-  // Up for 5 seconds
-  //SDL_Delay(5000);
 
   // CLEAN YO' ROOM
   SDL_CloseAudioDevice(dev);
