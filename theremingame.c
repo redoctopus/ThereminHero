@@ -75,7 +75,8 @@ int main(int argc, char* argv[]) {
     return 1;
   atexit(SDL_Quit); // Set exit function s.t. SDL resources deallocated on quit
 
-  // AUDIO SETTINGS
+
+  /* AUDIO SETTINGS */
   SDL_memset(&want, 0, sizeof(want));
   createWant(&want, &my_wavedata);    // Call function to initialize vals
   dev = SDL_OpenAudioDevice(NULL, 0, &want, &have,
@@ -84,14 +85,17 @@ int main(int argc, char* argv[]) {
     printf("Error opening audio device: %s\n", SDL_GetError());
   SDL_PauseAudioDevice(dev, 0);
 
-  /*******<Rendering/Drawing Setup>*******/
 
-  // Create window in which we will draw
+  /* RENDERING SETTINGS */
+
+  // Create window and renderer
   window = SDL_CreateWindow("SDL_RenderClear",
       SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 512, 512, 0);
-
-  // Create renderer
   renderer = SDL_CreateRenderer(window, -1, 0);
+
+
+
+  /*********< Okay, game time! >***********/
 
   SDL_SetRenderDrawColor(renderer, 170, 200, 215, 255);
 
@@ -105,10 +109,13 @@ int main(int argc, char* argv[]) {
   SDL_RenderPresent(renderer);
 
   while (!quit) {
+    // Poll for events
     while (SDL_PollEvent(&event)) {
       switch (event.type) {
         case SDL_KEYDOWN:
-          quit = 1;
+          if(event.key.keysym.sym == SDLK_ESCAPE) {
+            quit = 1;
+          }
           break;
         default:
           break;
@@ -131,6 +138,7 @@ int main(int argc, char* argv[]) {
  * and set its values appropriately  *
  *===================================*/
 void createWant(SDL_AudioSpec *wantpoint, wavedata *userdata) {
+
   wantpoint->freq = 48000;        // Sample rate of RasPi's sound system
   wantpoint->format = AUDIO_F32;  // 32-bit floating point samples, little-endian
   wantpoint->channels = 1;
