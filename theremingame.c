@@ -34,9 +34,18 @@ float pitches[] = {
   392.00, // G4
   440.00, // A4
   493.88, // B4
-  523.25  // C4
-}
-int pitchindex = 3;
+  523.25  // C5
+};
+char* pitchNames[] = {
+  "C4",
+  "D4",
+  "E4",
+  "F4",
+  "G4",
+  "A4",
+  "B4",
+  "C5"
+};
 
 // Settings
 int colorblind = 0;
@@ -47,13 +56,14 @@ typedef struct {
   double carrier_phase;       // Sine phase for callback to continue w.o clicks
   double modulator_phase;
   double modulator_amplitude; // Amount of modulation
-  int carrier_pitch;          // Frequency of carrier that determines pitch
+  //int carrier_pitch;          // Frequency of carrier that determines pitch
+  int pitchindex;
   int modulator_pitch;        // Frequency of modulator
 } wavedata;
 
 /* Functions */
 void createWant(SDL_AudioSpec *wantpoint, wavedata *userdata);
-void updateWavedata(wavedata *userdata, float newPitch);
+void updateWavedata(wavedata *userdata, int newPitch);
 
 /*=========<< END GLOBALS >>=========*/
 
@@ -74,10 +84,11 @@ void generateWaveform(void *userdata, Uint8 *stream, int len) {
   float *dest = (float*)stream;       // Destination of values generated
   int size = len/sizeof(float);       // Buffer size
 
-  wavedata *wave_data = (wavedata*)userdata;  // Get info from wavedata
-  int c_pitch = wave_data->carrier_pitch;     // Wave that actually plays
+  /* Get info from wavedata */
+  wavedata *wave_data = (wavedata*)userdata;
+  double c_pitch = pitches[wave_data->pitchindex];  // Wave that actually plays
   double c_phase = wave_data->carrier_phase;
-  int m_pitch = wave_data->modulator_pitch;   // Wave that modulates carrier
+  double m_pitch = instr*c_pitch;                // Wave that modulates carrier
   double m_phase = wave_data->modulator_phase;
   double m_amplitude = wave_data->modulator_amplitude;
 
@@ -126,9 +137,9 @@ int main(int argc, char* argv[]) {
   SDL_Texture *message;
   SDL_Rect message_rect;
 
-  SDL_Surface *freqMessage;
-  SDL_Texture *fmessage;
-  SDL_Rect fmessage_rect;
+  SDL_Surface *noteMessage;
+  SDL_Texture *nmessage;
+  SDL_Rect nmessage_rect;
   
   // Keycode for key presses
   SDL_Keycode key;
@@ -188,13 +199,15 @@ int main(int argc, char* argv[]) {
           if (key == SDLK_ESCAPE || key == SDLK_q) {
             quit = 1;
           }
-          else if (key == SDLK_UP && my_wavedata.carrier_pitch < 1000.0) {
-            updateWavedata(&my_wavedata, my_wavedata.carrier_pitch+5);
-            printf("%d\n", my_wavedata.carrier_pitch);
+          /* Raise pitch by one note */
+          else if (key == SDLK_UP && my_wavedata.pitchindex < 7) {
+            updateWavedata(&my_wavedata, my_wavedata.pitchindex+1);
+            printf("%d\n", my_wavedata.pitchindex);
           }
-          else if (key == SDLK_DOWN && my_wavedata.carrier_pitch > 200.0) {
-            updateWavedata(&my_wavedata, my_wavedata.carrier_pitch-5);
-            printf("%d\n", my_wavedata.carrier_pitch);
+          /* Lower pitch by one note */
+          else if (key == SDLK_DOWN && my_wavedata.pitchindex > 0) {
+            updateWavedata(&my_wavedata, my_wavedata.pitchindex-1);
+            printf("%d\n", my_wavedata.pitchindex);
           }
           /* Change to colorblind mode */
           else if (key == SDLK_BACKSPACE) {
@@ -203,7 +216,7 @@ int main(int argc, char* argv[]) {
           /* Change instruments */
           else if (key == SDLK_i) {
             instr = (instr == PIANO) ? GUITAR : PIANO;
-            updateWavedata(&my_wavedata, my_wavedata.carrier_pitch);
+            updateWavedata(&my_wavedata, my_wavedata.pitchindex);
           }
           /* Mute */
           else if (key == SDLK_m) {
@@ -241,14 +254,15 @@ int main(int argc, char* argv[]) {
     message_rect.w = 200;
     message_rect.h = 80;
 
-    freqMessage =
-      TTF_RenderText_Solid(font, "freq placeholder", fontColor);
-    fmessage = SDL_CreateTextureFromSurface(renderer, freqMessage);
+    /* Shows note on screen */
+    noteMessage =
+      TTF_RenderText_Solid(font, pitchNames[my_wavedata.pitchindex], fontColor);
+    nmessage = SDL_CreateTextureFromSurface(renderer, noteMessage);
 
-    fmessage_rect.x = 150;
-    fmessage_rect.y = 350;
-    fmessage_rect.w = 100;
-    fmessage_rect.h = 50;
+    nmessage_rect.x = 210;
+    nmessage_rect.y = 350;
+    nmessage_rect.w = 100;
+    nmessage_rect.h = 50;
 
     /* ========<< Background >>========= */
 
@@ -266,7 +280,7 @@ int main(int argc, char* argv[]) {
 
     // Render message texture
     SDL_RenderCopy(renderer, message, NULL, &message_rect);
-    SDL_RenderCopy(renderer, fmessage, NULL, &fmessage_rect);
+    SDL_RenderCopy(renderer, nmessage, NULL, &nmessage_rect);
 
     // Move to foreground
     SDL_RenderPresent(renderer);
@@ -300,7 +314,7 @@ void createWant(SDL_AudioSpec *wantpoint, wavedata *userdata) {
   wantpoint->callback = generateWaveform;
 
   // Set info in wavedata struct
-  userdata->carrier_pitch = 440;          // Start at A4
+  userdata->pitchindex = 0;          // Start at C4
   userdata->modulator_pitch = instr*440;
   userdata->modulator_phase = 0.0;
   userdata->carrier_phase = 0.0;
@@ -316,7 +330,6 @@ void createWant(SDL_AudioSpec *wantpoint, wavedata *userdata) {
  * the theremin.                                    *
  *==================================================*/
 
-void updateWavedata(wavedata *userdata, float newPitch) {
-  userdata->carrier_pitch = newPitch;
-  userdata->modulator_pitch = instr*newPitch;
+void updateWavedata(wavedata *userdata, int newPitch) {
+  userdata->pitchindex = newPitch;
 }
