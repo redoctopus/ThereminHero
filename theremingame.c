@@ -10,6 +10,7 @@
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_TTF.h>
+#include <string.h>
 #include <math.h>
 #ifndef M_PI
   #define M_PI 3.1415926535897932384
@@ -17,9 +18,14 @@
 
 #define TAU (2*M_PI)
 
+#define PIANO 2
+#define GUITAR 0.5
+
 /*==========<< GLOBALS >>===========*/
 
-int quit = 0;  /* Did the user hit quit? */
+int quit = 0;         /* Did the user hit quit? */
+float instr = PIANO;  /* Chosen instrument */
+
 // Settings
 int colorblind = 0;
 int mute = 0;
@@ -35,8 +41,10 @@ typedef struct {
 
 /* Functions */
 void createWant(SDL_AudioSpec *wantpoint, wavedata *userdata);
+void updateWavedata(wavedata *userdata, float newPitch);
 
 /*=========<< END GLOBALS >>=========*/
+
 
 /*=======<< generateWaveform (Callback Function) >>=======*
  * Fill audio buffer w/ glorious FM synth!                *
@@ -83,21 +91,33 @@ void generateWaveform(void *userdata, Uint8 *stream, int len) {
   else wave_data->modulator_amplitude = 0.4; //reset if we hit 0
 }
 
+
+
 /*=============<< main >>==============*
  * Get that party started!             *
  * Initialize for rendering and audio. *
  *=====================================*/
 int main(int argc, char* argv[]) {
+  // Audio vars
+  SDL_AudioSpec want, have;
+  SDL_AudioDeviceID dev;
+  wavedata my_wavedata;
+  
   // Rendering vars
   SDL_Window *window;
   SDL_Renderer *renderer;
   SDL_Event event;
 
-  // Audio vars
-  SDL_AudioSpec want, have;
-  SDL_AudioDeviceID dev;
-  wavedata my_wavedata;
+  // Text vars
+  TTF_Font* font;
+  SDL_Surface *surfaceMessage;
+  SDL_Texture *message;
+  SDL_Rect message_rect;
 
+  SDL_Surface *freqMessage;
+  SDL_Texture *fmessage;
+  SDL_Rect fmessage_rect;
+  
   // Keycode for key presses
   SDL_Keycode key;
 
@@ -131,7 +151,7 @@ int main(int argc, char* argv[]) {
   /* Text */
 
   // Opens font
-  TTF_Font* font = TTF_OpenFont("/Library/Fonts/Arial.ttf", 12);
+  font = TTF_OpenFont("/Library/Fonts/Arial.ttf", 12);
   if(font == NULL) {
     printf("Font not found\n");
     return 1;
@@ -152,12 +172,20 @@ int main(int argc, char* argv[]) {
         case SDL_KEYDOWN:
           key = event.key.keysym.sym;
 
-          if (key == SDLK_ESCAPE) {
+          /* Quit */
+          if (key == SDLK_ESCAPE || key == SDLK_q) {
             quit = 1;
           }
+          /* Change to colorblind mode */
           else if (key == SDLK_BACKSPACE) {
             colorblind = (colorblind+1)%2;
           }
+          /* Change instruments */
+          else if (key == SDLK_i) {
+            instr = (instr == PIANO) ? GUITAR : PIANO;
+            updateWavedata(&my_wavedata, my_wavedata.carrier_pitch);
+          }
+          /* Mute */
           else if (key == SDLK_m) {
             mute = (mute+1)%2;
           }
@@ -180,16 +208,27 @@ int main(int argc, char* argv[]) {
     }
     
     // Create surface and convert it to texture
-    SDL_Surface* surfaceMessage =
+    surfaceMessage =
       TTF_RenderText_Solid(font, "Theremin Hero!", fontColor);
     if (colorblind) {
       surfaceMessage = TTF_RenderText_Solid(font, "Colorblind Mode ;D", fontColor);
     }
-    SDL_Texture* message = SDL_CreateTextureFromSurface(renderer, surfaceMessage);
+    message = SDL_CreateTextureFromSurface(renderer, surfaceMessage);
 
     // {xPos, yPos, width, height}
-    SDL_Rect message_rect = {150,200,200,80};
+    message_rect.x = 150;
+    message_rect.y = 200;
+    message_rect.w = 200;
+    message_rect.h = 80;
 
+    freqMessage =
+      TTF_RenderText_Solid(font, "freq placeholder", fontColor);
+    fmessage = SDL_CreateTextureFromSurface(renderer, freqMessage);
+
+    fmessage_rect.x = 150;
+    fmessage_rect.y = 350;
+    fmessage_rect.w = 100;
+    fmessage_rect.h = 50;
 
     /* ========<< Background >>========= */
 
@@ -207,6 +246,7 @@ int main(int argc, char* argv[]) {
 
     // Render message texture
     SDL_RenderCopy(renderer, message, NULL, &message_rect);
+    SDL_RenderCopy(renderer, fmessage, NULL, &fmessage_rect);
 
     // Move to foreground
     SDL_RenderPresent(renderer);
@@ -230,6 +270,7 @@ int main(int argc, char* argv[]) {
  * Initialize the "want" Audiospec,  *
  * and set its values appropriately  *
  *===================================*/
+
 void createWant(SDL_AudioSpec *wantpoint, wavedata *userdata) {
 
   wantpoint->freq = 48000;        // Sample rate of RasPi's sound system
@@ -239,8 +280,8 @@ void createWant(SDL_AudioSpec *wantpoint, wavedata *userdata) {
   wantpoint->callback = generateWaveform;
 
   // Set info in wavedata struct
-  userdata->carrier_pitch = 1000;
-  userdata->modulator_pitch = 500;
+  userdata->carrier_pitch = 500;
+  userdata->modulator_pitch = instr*500;
   userdata->modulator_phase = 0.0;
   userdata->carrier_phase = 0.0;
   userdata->modulator_amplitude = 0.4;
@@ -248,3 +289,14 @@ void createWant(SDL_AudioSpec *wantpoint, wavedata *userdata) {
   wantpoint->userdata = userdata;
 }
 
+
+
+/*================< updateWavedata >================*
+ * Update the wavedata (userdata) with values from  *
+ * the theremin.                                    *
+ *==================================================*/
+
+void updateWavedata(wavedata *userdata, float newPitch) {
+  userdata->carrier_pitch = newPitch;
+  userdata->modulator_pitch = instr*newPitch;
+}
