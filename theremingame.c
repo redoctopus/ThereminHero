@@ -9,23 +9,25 @@
  */
 
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_TTF.h>
 #include <math.h>
 #ifndef M_PI
   #define M_PI 3.1415926535897932384
 #endif
 
+#define TAU (2*M_PI)
+
 /*==========<< GLOBALS >>===========*/
 
 int quit = 0;  /* Did the user hit quit? */
 
-/* AUDIO wavedata/userdata struct containing:
- *  phase:      Sine phase for callback function to continue where it left off
- *              such that there isn't any clicking
- *  freq_pitch: Frequency of the pitch given (arbitrary)
- */
+/* AUDIO wavedata/userdata struct */
 typedef struct {
-  double phase;
-  int freq_pitch;
+  double carrier_phase;       // Sine phase for callback to continue w.o clicks
+  double modulator_phase;
+  double modulator_amplitude; // Amount of modulation
+  int carrier_pitch;          // Frequency of carrier that determines pitch
+  int modulator_pitch;        // Frequency of modulator
 } wavedata;
 
 /* Functions */
@@ -33,27 +35,52 @@ void createWant(SDL_AudioSpec *wantpoint, wavedata *userdata);
 
 /*=========<< END GLOBALS >>=========*/
 
-/*==<< Sine wave generator -- Callback function >>==*/
+/*=======<< generateWaveform (Callback Function) >>=======*
+ * Fill audio buffer w/ glorious FM synth!                *
+ * We take a sine wave (the carrier) and modulate it with *
+ * another sine wave (the modulator).                     *
+ *                                                        *
+ * => sin(sin(t + p1) + t + p2) where p1, p2 are phases   *
+ *                                                        *
+ * This can create complex sounds with simple waveforms!  *
+ * You hear the "outer" (carrier) sine wave, as expected, *
+ * but you also hear the wave produced by the modulation  *
+ * of the carrier.                                        *
+ *========================================================*/
 void generateWaveform(void *userdata, Uint8 *stream, int len) {
   float *dest = (float*)stream;       // Destination of values generated
   int size = len/sizeof(float);       // Buffer size
 
   wavedata *wave_data = (wavedata*)userdata;  // Get info from wavedata
-  int freq_pitch = wave_data->freq_pitch;
-  double phase = wave_data->phase;
+  int c_pitch = wave_data->carrier_pitch;     // Wave that actually plays
+  double c_phase = wave_data->carrier_phase;
+  int m_pitch = wave_data->modulator_pitch;   // Wave that modulates carrier
+  double m_phase = wave_data->modulator_phase;
+  double m_amplitude = wave_data->modulator_amplitude;
 
-  // Fill audio buffer w/sine value
+  // Fill buffer
   for (int i=0; i<size; i++) {
-    dest[i] = sin(freq_pitch*(2*M_PI)*i/48000 + phase);
+    dest[i] =
+      sin( m_amplitude * sin( m_pitch*TAU*i/48000 + m_phase )
+           + c_pitch*TAU*i/48000 + c_phase);  // <- Modulation
   }
 
   // Update phase s.t. next frame of audio starts at same point in wave
-  wave_data->phase = fmod(freq_pitch*(2*M_PI)*size/48000 + phase, 2*M_PI);
-  // Swept sine wave; increment freq. by 1 each frame
-  wave_data->freq_pitch += 1;
+  wave_data->carrier_phase =
+    fmod(c_pitch*TAU*size/48000 + c_phase, TAU);
+  wave_data->modulator_phase =
+    fmod(m_pitch*TAU*size/48000 + m_phase, TAU);
+
+  /* Change modulator amplitude to vary the amount of modulation.
+   * A decay of 1 second means 0.4/60 = 0.066 repeating.
+   * 0.4 is the max amplitude (completely arbitrary, it just sounds good).
+   * 60 is frames per second.
+   */
+  if(m_amplitude > 0) wave_data->modulator_amplitude -= 0.0066666666;
+  else wave_data->modulator_amplitude = 0.4; //reset if we hit 0
 }
 
-/*=============<< Main >>==============*
+/*=============<< main >>==============*
  * Get that party started!             *
  * Initialize for rendering and audio. *
  *=====================================*/
@@ -146,8 +173,12 @@ void createWant(SDL_AudioSpec *wantpoint, wavedata *userdata) {
   wantpoint->callback = generateWaveform;
 
   // Set info in wavedata struct
-  userdata->freq_pitch = 1000;
-  userdata->phase = 0.0;
+  userdata->carrier_pitch = 1000;
+  userdata->modulator_pitch = 500;
+  userdata->modulator_phase = 0.0;
+  userdata->carrier_phase = 0.0;
+  userdata->modulator_amplitude = 0.4;
+
   wantpoint->userdata = userdata;
 }
 

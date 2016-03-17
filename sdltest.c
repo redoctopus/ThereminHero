@@ -1,7 +1,8 @@
 // Compile with:
-//   gcc -I/usr/local/include -L/usr/local/lib -lSDL2 sdltest.c
+//   gcc -I/usr/local/include -L/usr/local/lib -lSDL2 -lSDL2_ttf theremingame.c
 
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_TTF.h>
 #include <math.h>
 #ifndef M_PI
   #define M_PI 3.1415926535897932384
