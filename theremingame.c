@@ -20,7 +20,9 @@
 /*==========<< GLOBALS >>===========*/
 
 int quit = 0;  /* Did the user hit quit? */
+// Settings
 int colorblind = 0;
+int mute = 0;
 
 /* AUDIO wavedata/userdata struct */
 typedef struct {
@@ -96,6 +98,9 @@ int main(int argc, char* argv[]) {
   SDL_AudioDeviceID dev;
   wavedata my_wavedata;
 
+  // Keycode for key presses
+  SDL_Keycode key;
+
   /*******<Initial Settings>*******/
 
   // Initialize with appropriate flags
@@ -105,17 +110,18 @@ int main(int argc, char* argv[]) {
   atexit(SDL_Quit); // Set exit function s.t. SDL resources deallocated on quit
 
 
-  /* AUDIO SETTINGS */
+
+  /* ======<< AUDIO SETTINGS >>======= */
   SDL_memset(&want, 0, sizeof(want));
   createWant(&want, &my_wavedata);    // Call function to initialize vals
   dev = SDL_OpenAudioDevice(NULL, 0, &want, &have,
                             SDL_AUDIO_ALLOW_FORMAT_CHANGE);
   if (dev == 0) 
     printf("Error opening audio device: %s\n", SDL_GetError());
-  SDL_PauseAudioDevice(dev, 0);
 
 
-  /* RENDERING SETTINGS */
+
+  /* ======<< RENDERING SETTINGS >====== */
 
   // Create window and renderer
   window = SDL_CreateWindow("SDL_RenderClear",
@@ -130,13 +136,42 @@ int main(int argc, char* argv[]) {
     printf("Font not found\n");
     return 1;
   }
-  SDL_Color normalFontColor = {50, 170, 255};
-  SDL_Color cbFontColor = {80, 100, 80};
+  SDL_Color normalFontColor = {50, 170, 255};   // Darker blue
+  SDL_Color cbFontColor = {80, 100, 80};        // Weird green
   SDL_Color fontColor = normalFontColor;
   
 
   /*********< Okay, game time! >***********/
   while (!quit) {
+
+    /* ==========<< Poll for events >>============ */
+    while (SDL_PollEvent(&event)) {
+      switch (event.type) {
+
+        /* Key pressed */
+        case SDL_KEYDOWN:
+          key = event.key.keysym.sym;
+
+          if (key == SDLK_ESCAPE) {
+            quit = 1;
+          }
+          else if (key == SDLK_BACKSPACE) {
+            colorblind = (colorblind+1)%2;
+          }
+          else if (key == SDLK_m) {
+            mute = (mute+1)%2;
+          }
+          break;
+        /* Exit */
+        case SDL_QUIT:
+          quit = 1;
+          break;
+        default:
+          break;
+      }
+    }
+
+    /* ========<< Text >>======== */
 
     // Set font color
     fontColor = normalFontColor;
@@ -156,10 +191,12 @@ int main(int argc, char* argv[]) {
     SDL_Rect message_rect = {150,200,200,80};
 
 
-    /* Background */
-    SDL_SetRenderDrawColor(renderer, 170, 200, 215, 255);
+    /* ========<< Background >>========= */
+
+    // Choose background color
+    SDL_SetRenderDrawColor(renderer, 170, 200, 215, 255);   // Light blue
     if (colorblind) {
-      SDL_SetRenderDrawColor(renderer, 90, 60, 80, 255);
+      SDL_SetRenderDrawColor(renderer, 90, 60, 80, 255);    // Dark magenta
     }
 
     // Set background color
@@ -174,21 +211,8 @@ int main(int argc, char* argv[]) {
     // Move to foreground
     SDL_RenderPresent(renderer);
 
-    // Poll for events
-    while (SDL_PollEvent(&event)) {
-      switch (event.type) {
-        case SDL_KEYDOWN:
-          if (event.key.keysym.sym == SDLK_ESCAPE) {
-            quit = 1;
-          }
-          else if (event.key.keysym.sym == SDLK_BACKSPACE) {
-            colorblind = (colorblind+1)%2;
-          }
-          break;
-        default:
-          break;
-      }
-    }
+    /* =========<< Audio >>========== */
+    SDL_PauseAudioDevice(dev, mute);
   }
 
   // CLEAN YO' ROOM (Cleanup)
