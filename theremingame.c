@@ -244,7 +244,8 @@ int main(int argc, char* argv[]) {
     surfaceMessage =
       TTF_RenderText_Solid(font, "Theremin Hero!", fontColor);
     if (colorblind) {
-      surfaceMessage = TTF_RenderText_Solid(font, "Colorblind Mode ;D", fontColor);
+      surfaceMessage =
+        TTF_RenderText_Solid(font, "Colorblind Mode ;D", fontColor);
     }
     message = SDL_CreateTextureFromSurface(renderer, surfaceMessage);
 
@@ -275,8 +276,8 @@ int main(int argc, char* argv[]) {
     // Set background color
     SDL_RenderClear(renderer);
 
-    SDL_SetRenderDrawColor(renderer, 200, 255, 0, 255); // Green
-    SDL_RenderDrawLine(renderer, 5, 5, 340, 340);
+    SDL_SetRenderDrawColor(renderer, 200, 255, 0, 255);     // Green
+    SDL_RenderDrawLine(renderer, 5, 5, 340, 340);     // Awkward diagonal line
 
     // Render message texture
     SDL_RenderCopy(renderer, message, NULL, &message_rect);
@@ -298,7 +299,7 @@ int main(int argc, char* argv[]) {
 }
 
 
-/********<< Setup Functions >>*********/
+/********<< Helper Functions >>*********/
 
 /*==========< createWant >===========*
  * Initialize the "want" Audiospec,  *
@@ -308,9 +309,10 @@ int main(int argc, char* argv[]) {
 void createWant(SDL_AudioSpec *wantpoint, wavedata *userdata) {
 
   wantpoint->freq = 48000;        // Sample rate of RasPi's sound system
-  wantpoint->format = AUDIO_F32;  // 32-bit floating point samples, little-endian
+  wantpoint->format = AUDIO_F32;  // 32-bit floating pt samples, little-endian
   wantpoint->channels = 1;
-  wantpoint->samples = 800;   // (48000 samples/sec)/(60 frames/sec) = 800 samp/frame
+  wantpoint->samples = 800;       // (48000 samples/sec)/(60 frames/sec)
+                                  //  = 800 samp/frame
   wantpoint->callback = generateWaveform;
 
   // Set info in wavedata struct
