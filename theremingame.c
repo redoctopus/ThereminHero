@@ -20,6 +20,7 @@
 /*==========<< GLOBALS >>===========*/
 
 int quit = 0;  /* Did the user hit quit? */
+int colorblind = 0;
 
 /* AUDIO wavedata/userdata struct */
 typedef struct {
@@ -129,37 +130,59 @@ int main(int argc, char* argv[]) {
     printf("Font not found\n");
     return 1;
   }
-  SDL_Color color = {0, 0, 255};  // Choose color
-
-  // Create surface and convert it to texture
-  SDL_Surface* surfaceMessage = TTF_RenderText_Solid(font, "Theremin Hero!", color);
-  SDL_Texture* message = SDL_CreateTextureFromSurface(renderer, surfaceMessage);
-  SDL_Rect message_rect = {20,80,100,50};
+  SDL_Color normalFontColor = {50, 170, 255};
+  SDL_Color cbFontColor = {80, 100, 80};
+  SDL_Color fontColor = normalFontColor;
+  
 
   /*********< Okay, game time! >***********/
-
-  SDL_SetRenderDrawColor(renderer, 170, 200, 215, 255);
-
-  // Set background color
-  SDL_RenderClear(renderer);
-
-  SDL_SetRenderDrawColor(renderer, 200, 255, 0, 255); // Green
-  SDL_RenderDrawLine(renderer, 5, 5, 300, 300);
-
-  // Render message texture
-  SDL_RenderCopy(renderer, message, NULL, &message_rect);
-
-  // Move to foreground
-  SDL_RenderPresent(renderer);
-
-
   while (!quit) {
+
+    // Set font color
+    fontColor = normalFontColor;
+    if (colorblind) {
+      fontColor = cbFontColor;
+    }
+    
+    // Create surface and convert it to texture
+    SDL_Surface* surfaceMessage =
+      TTF_RenderText_Solid(font, "Theremin Hero!", fontColor);
+    if (colorblind) {
+      surfaceMessage = TTF_RenderText_Solid(font, "Colorblind Mode ;D", fontColor);
+    }
+    SDL_Texture* message = SDL_CreateTextureFromSurface(renderer, surfaceMessage);
+
+    // {xPos, yPos, width, height}
+    SDL_Rect message_rect = {150,200,200,80};
+
+
+    /* Background */
+    SDL_SetRenderDrawColor(renderer, 170, 200, 215, 255);
+    if (colorblind) {
+      SDL_SetRenderDrawColor(renderer, 90, 60, 80, 255);
+    }
+
+    // Set background color
+    SDL_RenderClear(renderer);
+
+    SDL_SetRenderDrawColor(renderer, 200, 255, 0, 255); // Green
+    SDL_RenderDrawLine(renderer, 5, 5, 340, 340);
+
+    // Render message texture
+    SDL_RenderCopy(renderer, message, NULL, &message_rect);
+
+    // Move to foreground
+    SDL_RenderPresent(renderer);
+
     // Poll for events
     while (SDL_PollEvent(&event)) {
       switch (event.type) {
         case SDL_KEYDOWN:
-          if(event.key.keysym.sym == SDLK_ESCAPE) {
+          if (event.key.keysym.sym == SDLK_ESCAPE) {
             quit = 1;
+          }
+          else if (event.key.keysym.sym == SDLK_BACKSPACE) {
+            colorblind = (colorblind+1)%2;
           }
           break;
         default:
@@ -169,6 +192,7 @@ int main(int argc, char* argv[]) {
   }
 
   // CLEAN YO' ROOM (Cleanup)
+  TTF_CloseFont(font);
   SDL_CloseAudioDevice(dev);
   SDL_Quit();
 
