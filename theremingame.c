@@ -98,7 +98,8 @@ int main(int argc, char* argv[]) {
   /*******<Initial Settings>*******/
 
   // Initialize with appropriate flags
-  if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER) < 0)
+  if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER) < 0 ||
+      TTF_Init() < 0)
     return 1;
   atexit(SDL_Quit); // Set exit function s.t. SDL resources deallocated on quit
 
@@ -120,7 +121,20 @@ int main(int argc, char* argv[]) {
       SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 512, 512, 0);
   renderer = SDL_CreateRenderer(window, -1, 0);
 
+  /* Text */
 
+  // Opens font
+  TTF_Font* font = TTF_OpenFont("/Library/Fonts/Arial.ttf", 12);
+  if(font == NULL) {
+    printf("Font not found\n");
+    return 1;
+  }
+  SDL_Color color = {0, 0, 255};  // Choose color
+
+  // Create surface and convert it to texture
+  SDL_Surface* surfaceMessage = TTF_RenderText_Solid(font, "Theremin Hero!", color);
+  SDL_Texture* message = SDL_CreateTextureFromSurface(renderer, surfaceMessage);
+  SDL_Rect message_rect = {20,80,100,50};
 
   /*********< Okay, game time! >***********/
 
@@ -132,8 +146,12 @@ int main(int argc, char* argv[]) {
   SDL_SetRenderDrawColor(renderer, 200, 255, 0, 255); // Green
   SDL_RenderDrawLine(renderer, 5, 5, 300, 300);
 
+  // Render message texture
+  SDL_RenderCopy(renderer, message, NULL, &message_rect);
+
   // Move to foreground
   SDL_RenderPresent(renderer);
+
 
   while (!quit) {
     // Poll for events
