@@ -26,6 +26,18 @@
 int quit = 0;         /* Did the user hit quit? */
 float instr = PIANO;  /* Chosen instrument */
 
+float pitches[] = {
+  261.63, // C4
+  293.66, // D4
+  329.63, // E4
+  349.23, // F4
+  392.00, // G4
+  440.00, // A4
+  493.88, // B4
+  523.25  // C4
+}
+int pitchindex = 3;
+
 // Settings
 int colorblind = 0;
 int mute = 0;
@@ -87,8 +99,8 @@ void generateWaveform(void *userdata, Uint8 *stream, int len) {
    * 0.4 is the max amplitude (completely arbitrary, it just sounds good).
    * 60 is frames per second.
    */
-  if(m_amplitude > 0) wave_data->modulator_amplitude -= 0.0066666666;
-  else wave_data->modulator_amplitude = 0.4; //reset if we hit 0
+  //if(m_amplitude > 0) wave_data->modulator_amplitude -= 0.0066666666;
+  //else wave_data->modulator_amplitude = 0.4; //reset if we hit 0
 }
 
 
@@ -175,6 +187,14 @@ int main(int argc, char* argv[]) {
           /* Quit */
           if (key == SDLK_ESCAPE || key == SDLK_q) {
             quit = 1;
+          }
+          else if (key == SDLK_UP && my_wavedata.carrier_pitch < 1000.0) {
+            updateWavedata(&my_wavedata, my_wavedata.carrier_pitch+5);
+            printf("%d\n", my_wavedata.carrier_pitch);
+          }
+          else if (key == SDLK_DOWN && my_wavedata.carrier_pitch > 200.0) {
+            updateWavedata(&my_wavedata, my_wavedata.carrier_pitch-5);
+            printf("%d\n", my_wavedata.carrier_pitch);
           }
           /* Change to colorblind mode */
           else if (key == SDLK_BACKSPACE) {
@@ -280,8 +300,8 @@ void createWant(SDL_AudioSpec *wantpoint, wavedata *userdata) {
   wantpoint->callback = generateWaveform;
 
   // Set info in wavedata struct
-  userdata->carrier_pitch = 500;
-  userdata->modulator_pitch = instr*500;
+  userdata->carrier_pitch = 440;          // Start at A4
+  userdata->modulator_pitch = instr*440;
   userdata->modulator_phase = 0.0;
   userdata->carrier_phase = 0.0;
   userdata->modulator_amplitude = 0.4;
