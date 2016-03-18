@@ -86,8 +86,8 @@ void updateWavedata(wavedata *userdata, int newPitch);
  * of the carrier.                                        *
  *========================================================*/
 void generateWaveform(void *userdata, Uint8 *stream, int len) {
-  float *dest = (float*)stream;       // Destination of values generated
-  int size = len/sizeof(float);       // Buffer size
+  short *dest = (short*)stream;       // Destination of values generated
+  int size = len/sizeof(short);       // Buffer size
 
   /* Get info from wavedata */
   wavedata *wave_data = (wavedata*)userdata;
@@ -101,7 +101,8 @@ void generateWaveform(void *userdata, Uint8 *stream, int len) {
   for (int i=0; i<size; i++) {
     dest[i] =
       sin( m_amplitude * sin( m_pitch*TAU*i/48000 + m_phase )
-           + c_pitch*TAU*i/48000 + c_phase);  // <- Modulation
+           + c_pitch*TAU*i/48000 + c_phase)*32767;  // <- Modulation
+    //converts from float audio to signed short
   }
 
   // Update phase s.t. next frame of audio starts at same point in wave
@@ -317,7 +318,7 @@ int main(int argc, char* argv[]) {
 void createWant(SDL_AudioSpec *wantpoint, wavedata *userdata) {
 
   wantpoint->freq = 48000;        // Sample rate of RasPi's sound system
-  wantpoint->format = AUDIO_F32;  // 32-bit floating pt samples, little-endian
+  wantpoint->format = AUDIO_S16SYS;  // 32-bit floating pt samples, little-endian
   wantpoint->channels = 1;
   wantpoint->samples = 800;       // (48000 samples/sec)/(60 frames/sec)
                                   //  = 800 samp/frame
