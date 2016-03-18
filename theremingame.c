@@ -9,9 +9,11 @@
  */
 
 #include <SDL2/SDL.h>
-#include <SDL2/SDL_TTF.h>
+#include <SDL2/SDL_ttf.h>
 #include <string.h>
 #include <math.h>
+#include <bcm2835.h>
+
 #ifndef M_PI
   #define M_PI 3.1415926535897932384
 #endif
@@ -20,6 +22,9 @@
 
 #define PIANO 2
 #define GUITAR 0.5
+
+#define PIN18 RPI_GPIO_P1_12 // RPi input pin
+
 
 /*==========<< GLOBALS >>===========*/
 
@@ -188,6 +193,8 @@ int main(int argc, char* argv[]) {
   /*********< Okay, game time! >***********/
   while (!quit) {
 
+    //get current light level
+    updateWavedata(&my_wavedata, readLight());
     /* ==========<< Poll for events >>============ */
     while (SDL_PollEvent(&event)) {
       switch (event.type) {
@@ -335,4 +342,24 @@ void createWant(SDL_AudioSpec *wantpoint, wavedata *userdata) {
 
 void updateWavedata(wavedata *userdata, int newPitch) {
   userdata->pitchindex = newPitch;
+}
+
+/*================< readLight >================*
+ * Read from the light sensor                  *
+ *=============================================*/
+int readLight(){
+  if(!bcm2835_init) return 1;
+  while(1){
+    int value = 0;
+    bcm2835_gpio_fsel(PIN18, BCM2835_GPIO_FSEL_OUTP); // set pin to output
+    bcm2835_gpio_write(PIN18, LOW); //drive pin low
+    bcm2835_delay(100); // wait for cap to discharge
+    bcm2835_gpio_fsel(PIN18, BCM2835_GPIO_FSEL_INPT); // set pin to input
+    // see how long it takes to charge cap
+    while(bcm2835_gpio_lev(PIN18) == LOW){
+      value++;
+      if(value == 8) break;
+    }
+    return value;
+  }
 }
