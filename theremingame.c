@@ -174,7 +174,8 @@ int main(int argc, char* argv[]) {
   /* Text */
 
   // Opens font
-  font = TTF_OpenFont("/Library/Fonts/Arial.ttf", 12);
+  //font = TTF_OpenFont("/Library/Fonts/Arial.ttf", 12);
+  font = TTF_OpenFont("/usr/share/fonts/Droid/Roboto_Regular.ttf");
   if(font == NULL) {
     printf("Font not found\n");
     return 1;
